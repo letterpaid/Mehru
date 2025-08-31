@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="hi">
+<head>
+<meta charset="utf-8">
+<title>Editable Letter Pad</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;700&display=swap" rel="stylesheet">
+<style>
+body { margin:0; padding:0; background:#f2f2f2; font-family:'Noto Sans Devanagari', sans-serif; }
+.page { width:210mm; height:297mm; margin:20px auto; background:white; box-shadow:0 0 5px rgba(0,0,0,0.3); position:relative; padding:40px 40px 40px 70px; box-sizing:border-box; }
+header { text-align:center; line-height:1.4; position:relative; }
+header h2 { margin:0; font-size:29px; font-weight:bold; }
+header h3 { margin:0; font-size:22px; font-weight:bold; }
+header p { margin:0; font-size:16px; }
+.line { border-top:2px solid black; margin:10px 0; }
+.sub-line { border-top:2px solid black; margin:5px 0 15px 0; }
+.editable { outline:none; }
+.row { display:flex; justify-content:space-between; align-items:center; margin:5px 0; }
+.row input.calendar { margin-left:5px; }
+.content { min-height:170px; font-size:16px; line-height:1.6; margin-top:1px; text-align:justify; }
+.signature { text-align:right; margin-top:15px; font-weight:bold; position:relative; }
+.signature img { position:absolute; top:-45px; right:0; max-width:80px; height:auto; z-index:10; pointer-events:none; }
+footer { position:absolute; bottom:20px; left:40px; right:40px; text-align:center; font-size:14px; border-top:2px solid black; padding-top:5px; }
+.buttons { text-align:center; margin:20px; }
+button { margin:5px; padding:10px 20px; font-size:16px; cursor:pointer; }
+input[type=date], input[type=file] { font-size:16px; padding:2px 5px; }
+ol { list-style-type:decimal; margin-left:20px; }
+.seal-text { color:#2B006B; font-weight:bold; }
+.file-upload { display:inline-block; margin-left:10px; }
+
+/* Print Styles */
+@media print {
+  body * { visibility: hidden; }
+  #letter-pad, #letter-pad * { visibility: visible; }
+  #letter-pad { 
+    position: absolute; top: 0; left: 0; 
+    width: 210mm; height: 297mm; margin:0; 
+    box-shadow:none; 
+    padding:40px 40px 40px 70px; 
+  }
+  .buttons { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="buttons">
+  <button onclick="downloadPDF()">Download PDF</button>
+  <button onclick="resetContent()">Reset</button>
+  <button onclick="deleteBottomSection()">Delete Bottom Section</button>
+  <button onclick="undoAction()">Undo</button>
+  <button onclick="redoAction()">Redo</button>
+  <button onclick="formatText('bold')">B</button>
+  <button onclick="formatText('underline')">U</button>
+  <input type="file" accept="image/*" id="signature-upload" class="file-upload" onchange="uploadSignature(event)">
+  <button onclick="printLetter()">Print</button>
+</div>
+
+<div class="page" id="letter-pad">
+  <header>
+  <div style="position: relative; width: 100%; font-weight: bold; margin: 0; height: 24px;">
+    <!-- Left side -->
+    <div style="position: absolute; left: 0;">Email:- gssmehru@gmail.com</div>
+    
+    <!-- Center -->
+    <div style="position: absolute; left: 50%; transform: translateX(-50%);">राजस्थान सरकार</div>
+    
+    <!-- Right side -->
+    <div style="position: absolute; right: 0;">U-Dise Code:- 08220407201</div>
+  </div>
+
+  <p style="text-align:center; font-weight: bold; margin-top:0px;">शिक्षा विभाग</p>
+  <h2>कार्यालय प्रधानाचार्य राजकीय उच्च माध्यमिक विद्यालय, मेहरू</h2>
+  <h3>तहसील टोडारायसिंह जिला टोंक</h3>
+  <div class="line"></div>
+  <div class="row">
+    <span class="editable" id="krmank-top" contenteditable="false" data-default="क्रमांक :- रा.उ.मा.वि. मेहरू/2025-26/<span id='krmank-num' contenteditable='true'></span>">
+      क्रमांक :- रा.उ.मा.वि. मेहरू/2025-26/<span id="krmank-num" contenteditable="true"></span>
+    </span>
+    <span class="editable" id="header-date" contenteditable="false" data-default="दिनांक :- ">
+      दिनांक :- <input type="date" class="calendar" onchange="syncDate(this)">
+    </span>
+  </div>
+  <div class="sub-line"></div>
+</header>
+
+  <h2 style="text-align:center; font-weight:bold;" class="editable" contenteditable="true" data-default="कार्यालय आदेश">कार्यालय आदेश</h2>
+  <div class="content editable" contenteditable="true" data-default="यहाँ अपना पत्र लिखें...">यहाँ अपना पत्र लिखें...</div>
+
+  <div class="signature" id="top-signature">
+    <img id="top-signature-img" src="" alt="" style="display:none;">
+    <div class="seal-text" contenteditable="false">प्रधानाचार्य &nbsp;&nbsp;&nbsp;&nbsp;</div>
+    <div class="seal-text" contenteditable="false">रा.उ.मा.वि. मेहरू</div>
+  </div>
+
+  <div id="bottom-block">
+    <div class="row" id="bottom-row" style="margin-top:40px;">
+      <span id="krmank-bottom">क्रमांक :- रा.उ.मा.वि. मेहरू/2025-26/<span id="krmank-num-bottom"></span></span>
+      <span id="footer-date">दिनांक :- </span>
+    </div>
+  </div>
+
+  <div id="copy-section">
+    <p><b>प्रतिलिपि सूचनार्थ :-</b></p>
+    <ol id="copy-list">
+      <li class="editable" contenteditable="true" data-default="श्रीमान जिला शिक्षा अधिकारी(मुख्यालय), माध्यमिक टोंक">श्रीमान जिला शिक्षा अधिकारी(मुख्यालय), माध्यमिक टोंक</li>
+      <li class="editable" contenteditable="true" data-default="रक्षित पत्रावली">रक्षित पत्रावली</li>
+    </ol>
+  </div>
+
+  <div class="signature" id="bottom-signature">
+    <img id="bottom-signature-img" src="" alt="" style="display:none;">
+    <div class="seal-text" contenteditable="false">प्रधानाचार्य &nbsp;&nbsp;&nbsp;&nbsp;</div>
+    <div class="seal-text" contenteditable="false">रा.उ.मा.वि. मेहरू</div>
+  </div>
+
+  
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+let undoStack = [];
+let redoStack = [];
+let isTyping = false;
+
+function saveState(){
+  if(!isTyping){
+    undoStack.push(document.getElementById("letter-pad").innerHTML);
+    if(undoStack.length>50) undoStack.shift();
+    redoStack=[];
+  }
+}
+
+function undoAction(){
+  if(undoStack.length===0) return;
+  redoStack.push(document.getElementById("letter-pad").innerHTML);
+  const last = undoStack.pop();
+  document.getElementById("letter-pad").innerHTML = last;
+  initEditableList();
+  bindSyncHandlers();
+  autoSave();
+}
+
+function redoAction(){
+  if(redoStack.length===0) return;
+  undoStack.push(document.getElementById("letter-pad").innerHTML);
+  const next = redoStack.pop();
+  document.getElementById("letter-pad").innerHTML = next;
+  initEditableList();
+  bindSyncHandlers();
+  autoSave();
+}
+
+function formatText(command){
+  document.execCommand(command, false, null);
+  saveState();
+  autoSave();
+}
+
+function uploadSignature(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    const src = e.target.result;
+    document.getElementById('top-signature-img').src = src;
+    document.getElementById('bottom-signature-img').src = src;
+    document.getElementById('top-signature-img').style.display='block';
+    document.getElementById('bottom-signature-img').style.display='block';
+    saveState();
+    autoSave();
+  };
+  reader.readAsDataURL(file);
+}
+
+function deleteBottomSection(){
+  document.getElementById('bottom-block').style.display = 'none';
+  document.getElementById('copy-section').style.display = 'none';
+  document.getElementById('bottom-signature').style.display = 'none';
+  saveState();
+  autoSave();
+}
+
+function resetContent(){
+  document.querySelectorAll(".editable").forEach(el=>{
+    if(el.id==="header-date"){
+      el.innerHTML='दिनांक :- <input type="date" class="calendar" onchange="syncDate(this)">';
+    } else if(el.id==="krmank-top"){
+      el.innerHTML=el.getAttribute("data-default");
+    } else {
+      el.innerHTML=el.getAttribute("data-default");
+    }
+  });
+
+  document.getElementById('bottom-block').style.display = 'block';
+  document.getElementById('copy-section').style.display = 'block';
+  document.getElementById('bottom-signature').style.display = 'block';
+
+  document.getElementById('bottom-block').innerHTML=`
+    <div class="row" id="bottom-row" style="margin-top:40px;">
+      <span id="krmank-bottom">क्रमांक :- रा.उ.मा.वि. मेहरू/2025-26/<span id="krmank-num-bottom"></span></span>
+      <span id="footer-date">दिनांक :- </span>
+    </div>
+  `;
+
+  document.getElementById('copy-section').innerHTML=`
+    <p><b>प्रतिलिपि सूचनार्थ :-</b></p>
+    <ol id="copy-list">
+      <li class="editable" contenteditable="true" data-default="श्रीमान जिला शिक्षा अधिकारी(मुख्यालय), माध्यमिक टोंक">श्रीमान जिला शिक्षा अधिकारी(मुख्यालय), माध्यमिक टोंक</li>
+      <li class="editable" contenteditable="true" data-default="रक्षित पत्रावली">रक्षित पत्रावली</li>
+    </ol>
+  `;
+
+  document.getElementById('top-signature').innerHTML=`
+    <img id="top-signature-img" src="" alt="" style="display:none;">
+    <div class="seal-text" contenteditable="false">प्रधानाचार्य &nbsp;&nbsp;&nbsp;&nbsp;</div>
+    <div class="seal-text" contenteditable="false">रा.उ.मा.वि. मेहरू</div>
+  `;
+  document.getElementById('bottom-signature').innerHTML=`
+    <img id="bottom-signature-img" src="" alt="" style="display:none;">
+    <div class="seal-text" contenteditable="false">प्रधानाचार्य &nbsp;&nbsp;&nbsp;&nbsp;</div>
+    <div class="seal-text" contenteditable="false">रा.उ.मा.वि. मेहरू</div>
+  `;
+
+  document.getElementById('signature-upload').value='';
+  initEditableList();
+  bindSyncHandlers();
+  saveState();
+  localStorage.removeItem("letterPadContent");
+}
+
+function syncDate(input){
+  const d=new Date(input.value);
+  if(isNaN(d)) return;
+  const day=('0'+d.getDate()).slice(-2);
+  const month=('0'+(d.getMonth()+1)).slice(-2);
+  const year=d.getFullYear();
+  const formatted='दिनांक :- '+day+'/'+month+'/'+year;
+  document.getElementById('header-date').innerText=formatted;
+  document.getElementById('footer-date').innerText=formatted;
+  saveState();
+  autoSave();
+}
+
+async function downloadPDF(){
+  const { jsPDF } = window.jspdf;
+  const letterPad = document.getElementById("letter-pad");
+  const canvas = await html2canvas(letterPad, {scale:1.8});
+  const imgData = canvas.toDataURL("image/jpeg", 0.9);
+  const pdf = new jsPDF("p","mm","a4");
+  const pdfWidth = pdf.internal.pageSize.getWidth();
+  const pdfHeight = pdf.internal.pageSize.getHeight();
+  pdf.addImage(imgData,"JPEG",0,0,pdfWidth,pdfHeight);
+
+  let krmank=document.getElementById("krmank-num")?.innerText.trim()||"000";
+  let dateText=document.getElementById("header-date")?.innerText||"";
+  let dateMatch=dateText.match(/(\d{2})\/(\d{2})\/(\d{4})$/);
+  let formattedDate="";
+  if(dateMatch){ formattedDate=dateMatch[0].replace(/\//g,''); }
+  else{ let d=new Date(); formattedDate=('0'+d.getDate()).slice(-2)+('0'+(d.getMonth()+1)).slice(-2)+String(d.getFullYear()).slice(-2);}
+
+  pdf.save(krmank+formattedDate+".pdf");
+}
+
+function autoSave(){
+  const letterPad=document.getElementById("letter-pad");
+  if(letterPad) localStorage.setItem("letterPadContent",letterPad.innerHTML);
+}
+
+function loadAutoSave(){
+  const saved=localStorage.getItem("letterPadContent");
+  if(saved) document.getElementById("letter-pad").innerHTML=saved;
+}
+
+function initEditableList(){
+  const list=document.getElementById('copy-list');
+  if(!list) return;
+  function placeCaretAtStart(node){ 
+    node.focus(); 
+    const sel=window.getSelection(); 
+    const range=document.createRange(); 
+    if(!node.firstChild) node.appendChild(document.createTextNode('')); 
+    range.setStart(node.firstChild,0); 
+    range.collapse(true); 
+    sel.removeAllRanges(); 
+    sel.addRange(range); 
+  }
+  function placeCaretAtEnd(node){ 
+    node.focus(); 
+    const sel=window.getSelection(); 
+    const range=document.createRange(); 
+    if(!node.firstChild) node.appendChild(document.createTextNode('')); 
+    const len=node.firstChild.length; 
+    range.setStart(node.firstChild,len); 
+    range.collapse(true); 
+    sel.removeAllRanges(); 
+    sel.addRange(range); 
+  }
+  function createEditableLi(text){ 
+    const li=document.createElement('li'); 
+    li.className='editable'; 
+    li.setAttribute('contenteditable','true'); 
+    li.setAttribute('data-default',text||''); 
+    li.innerText=text||''; 
+    li.addEventListener('keydown',liKeyDownHandler); 
+    return li; 
+  }
+  function liKeyDownHandler(e){
+    const current=e.currentTarget;
+    if(e.key==='Enter'){
+      e.preventDefault();
+      const newLi=createEditableLi('');
+      if(current.nextSibling) current.parentNode.insertBefore(newLi,current.nextSibling);
+      else current.parentNode.appendChild(newLi);
+      placeCaretAtStart(newLi);
+      return;
+    }
+    if(e.key==='Backspace'){
+      const text=current.textContent.trim();
+      if(text.length===0){
+        e.preventDefault();
+        const prev=current.previousElementSibling;
+        const parent=current.parentNode;
+        parent.removeChild(current);
+        if(prev) placeCaretAtEnd(prev);
+        else{
+          if(!parent.querySelector('li')){
+            const li=createEditableLi('');
+            parent.appendChild(li);
+            placeCaretAtStart(li);
+          }else{
+            placeCaretAtStart(parent.querySelector('li'));
+          }
+        }
+      }
+    }
+  }
+  list.querySelectorAll('li.editable').forEach(li=>li.addEventListener('keydown',liKeyDownHandler));
+}
+
+function bindSyncHandlers(){
+  const topNum=document.getElementById('krmank-num');
+  if(topNum){ topNum.addEventListener('input',()=>{
+    const bottomNum=document.getElementById('krmank-num-bottom');
+    if(bottomNum) bottomNum.innerText=topNum.innerText;
+  });}
+}
+
+function printLetter(){
+  window.print();
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  loadAutoSave();
+  initEditableList();
+  bindSyncHandlers();
+  document.getElementById("letter-pad").addEventListener("input",()=>{
+    isTyping = true;
+    saveState();
+    isTyping = false;
+    autoSave();
+  });
+  saveState(); // initial state
+});
+</script>
+</body>
+</html>
